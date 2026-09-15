@@ -1,6 +1,6 @@
 # Codex Window Keeper (Windows)
 
-Mantém a janela de 5 horas do Codex sempre ativa. Um agendamento verifica a quota real a cada 5 minutos via `codex app-server` e envia um ping mínimo (GPT-5.6 Luna, reasoning `none`) somente quando a janela já expirou.
+Mantém a janela de 5 horas do Codex sempre ativa. Um agendamento verifica a quota real a cada 5 minutos via `codex app-server` e envia um ping mínimo (GPT-5.6 Luna, reasoning `none`) na primeira execução e a cada 4h55, com margem para o agendamento não deixar a janela cair.
 
 ## Requisitos
 

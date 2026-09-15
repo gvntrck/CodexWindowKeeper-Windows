@@ -1,18 +1,19 @@
 ﻿# CodexWindowKeeper.ps1 - v2
 # Consulta a janela REAL de uso do Codex via `codex app-server`.
-# So envia um ping quando a janela de 5 horas (300 min) ja terminou.
+# Envia um ping quando a ativacao local esta vencida, antes de deixar a janela cair.
 # O ping usa GPT-5.6 Luna + reasoning none e configuracao minima.
 
 $ErrorActionPreference = "Stop"
 
-$Version = "2.2.0"
+$Version = "2.3.0"
 $AppDir = Join-Path $env:LOCALAPPDATA "CodexWindowKeeper"
 $StateFile = Join-Path $AppDir "state.json"
 $LogFile = Join-Path $AppDir "keeper.log"
 
 $Prompt = "Responda somente OK."
 $TimeoutSeconds = 120
-$FallbackInterval = [TimeSpan]::FromHours(5)
+# ponytail: margem fixa de 5 min para o agendamento; aumente se o intervalo da tarefa mudar.
+$ActivationInterval = [TimeSpan]::FromMinutes(295)
 
 New-Item -ItemType Directory -Path $AppDir -Force | Out-Null
 
@@ -316,6 +317,8 @@ if (-not $createdNew) {
 try {
     $codexPath = Get-CodexPath
     $nowUtc = [DateTime]::UtcNow
+    $lastSuccessUtc = Get-LastSuccessUtc
+    $activationDue = $null -eq $lastSuccessUtc -or (($nowUtc - $lastSuccessUtc) -ge $ActivationInterval)
     $shouldPing = $false
     $usedRealQuotaData = $false
 
@@ -334,7 +337,16 @@ try {
                 $resetLocal = [DateTimeOffset]::FromUnixTimeSeconds($resetUnix).LocalDateTime
                 $usedPercent = $quota.Primary.usedPercent
 
-                if ($resetUnix -gt $nowUnix) {
+                if ($activationDue) {
+                    if ($lastSuccessUtc) {
+                        Write-Log ("Ativacao de 5h devida. Ultimo ping: {0}." -f $lastSuccessUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"))
+                    }
+                    else {
+                        Write-Log "Ativacao de 5h devida. Ainda nao existe ping registrado."
+                    }
+                    $shouldPing = $true
+                }
+                elseif ($resetUnix -gt $nowUnix) {
                     Write-Log ("Janela real de 5h ainda ativa. Uso: {0}%. Reset: {1}." -f $usedPercent, $resetLocal.ToString("yyyy-MM-dd HH:mm:ss"))
                     $shouldPing = $false
                 }
@@ -350,15 +362,13 @@ try {
     }
 
     if (-not $usedRealQuotaData) {
-        $lastSuccessUtc = Get-LastSuccessUtc
-
         if (-not $lastSuccessUtc) {
             Write-Log "Quota real indisponivel e nao existe estado local. Executando um ping inicial."
             $shouldPing = $true
         }
         else {
             $elapsed = $nowUtc - $lastSuccessUtc
-            if ($elapsed -ge $FallbackInterval) {
+            if ($elapsed -ge $ActivationInterval) {
                 Write-Log ("Fallback local: ultima chamada ha {0:N2} horas. Executando ping." -f $elapsed.TotalHours)
                 $shouldPing = $true
             }
