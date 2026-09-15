@@ -13,7 +13,7 @@ Mantém a janela de 5 horas do Codex sempre ativa. Um agendamento verifica a quo
 powershell -ExecutionPolicy Bypass -File .\Install-CodexWindowKeeper.ps1
 ```
 
-Cria a tarefa agendada **Codex Window Keeper** e copia o script para `%LOCALAPPDATA%\CodexWindowKeeper`.
+Cria a tarefa agendada **Codex Window Keeper** e copia o script para `%LOCALAPPDATA%\CodexWindowKeeper`. A tarefa roda via `wscript.exe`, sem abrir janela de console.
 
 ## Arquivos gerados
 

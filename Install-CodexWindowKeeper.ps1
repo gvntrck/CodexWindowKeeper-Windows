@@ -1,4 +1,4 @@
-﻿# Install-CodexWindowKeeper.ps1 - v2.2
+﻿# Install-CodexWindowKeeper.ps1 - v2.3
 
 $ErrorActionPreference = "Stop"
 
@@ -25,7 +25,14 @@ catch {
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 Copy-Item $SourceScript $TargetScript -Force
 
-$taskCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$TargetScript`""
+$VbsLauncher = Join-Path $InstallDir "CodexWindowKeeper.vbs"
+$vbsContent = @"
+Set sh = CreateObject("WScript.Shell")
+sh.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ""$TargetScript""", 0, False
+"@
+Set-Content -Path $VbsLauncher -Value $vbsContent -Encoding ASCII
+
+$taskCommand = "wscript.exe `"$VbsLauncher`""
 
 Write-Host ""
 Write-Host "Criando/atualizando tarefa '$TaskName'..."
