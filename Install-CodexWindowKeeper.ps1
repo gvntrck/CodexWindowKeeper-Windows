@@ -1,4 +1,4 @@
-﻿# Install-CodexWindowKeeper.ps1 - v2.3
+﻿# Install-CodexWindowKeeper.ps1 - v2.4
 
 $ErrorActionPreference = "Stop"
 

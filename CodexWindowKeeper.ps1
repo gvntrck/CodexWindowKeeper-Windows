@@ -1,11 +1,11 @@
 ﻿# CodexWindowKeeper.ps1 - v2
 # Consulta a janela REAL de uso do Codex via `codex app-server`.
-# Envia um ping quando a ativacao local esta vencida, antes de deixar a janela cair.
+# Envia um ping quando a janela real expirou ou esta vazia e a ativacao local venceu.
 # O ping usa GPT-5.6 Luna + reasoning none e configuracao minima.
 
 $ErrorActionPreference = "Stop"
 
-$Version = "2.3.0"
+$Version = "2.4.0"
 $AppDir = Join-Path $env:LOCALAPPDATA "CodexWindowKeeper"
 $StateFile = Join-Path $AppDir "state.json"
 $LogFile = Join-Path $AppDir "keeper.log"
@@ -212,6 +212,10 @@ function Get-LastSuccessUtc {
 
     try {
         $state = Get-Content $StateFile -Raw | ConvertFrom-Json
+        if ([string]$state.version -ne $Version) {
+            return $null
+        }
+
         if ($state.last_success_utc) {
             return [DateTime]::Parse(
                 [string]$state.last_success_utc,
@@ -337,21 +341,25 @@ try {
                 $resetLocal = [DateTimeOffset]::FromUnixTimeSeconds($resetUnix).LocalDateTime
                 $usedPercent = $quota.Primary.usedPercent
 
-                if ($activationDue) {
-                    if ($lastSuccessUtc) {
-                        Write-Log ("Ativacao de 5h devida. Ultimo ping: {0}." -f $lastSuccessUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"))
-                    }
-                    else {
-                        Write-Log "Ativacao de 5h devida. Ainda nao existe ping registrado."
-                    }
-                    $shouldPing = $true
-                }
-                elseif ($resetUnix -gt $nowUnix) {
+                if (
+                    $resetUnix -gt $nowUnix -and
+                    (-not $activationDue -or [int64]$usedPercent -ne 0)
+                ) {
                     Write-Log ("Janela real de 5h ainda ativa. Uso: {0}%. Reset: {1}." -f $usedPercent, $resetLocal.ToString("yyyy-MM-dd HH:mm:ss"))
                     $shouldPing = $false
                 }
                 else {
-                    Write-Log ("Janela real de 5h expirou em {0}. Um novo ping sera enviado." -f $resetLocal.ToString("yyyy-MM-dd HH:mm:ss"))
+                    if ($activationDue) {
+                        if ($lastSuccessUtc) {
+                            Write-Log ("Ativacao de 5h devida. Ultimo ping: {0}." -f $lastSuccessUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"))
+                        }
+                        else {
+                            Write-Log "Ativacao de 5h devida. Ainda nao existe ping registrado."
+                        }
+                    }
+                    else {
+                        Write-Log ("Janela real de 5h expirou em {0}. Um novo ping sera enviado." -f $resetLocal.ToString("yyyy-MM-dd HH:mm:ss"))
+                    }
                     $shouldPing = $true
                 }
             }
